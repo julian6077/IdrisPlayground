@@ -5,6 +5,8 @@ grp = [?, ?, ...] -- variable allowed grouping sizes (3,4,5)
 x = 1 arbitary num from grp
 n = amount of projects
 
+If n <= max(grp) then no grouping, else
+
 Grouping must solve atleast one solution to be "fair":
 I.   n mod x = 0
 II.  n mod x = 1		     (last group has 1 project more)
@@ -17,7 +19,7 @@ I.   is for x = max(grp) no real solution
 III. is for x = min(grp) no real solution 
 (last grp will be smaller than allowed sizes)
 
-
+Unfair numbers are: 2, 26, and 38 (for grp = [3,4,5])
 
 2. Fair room distribution:
 

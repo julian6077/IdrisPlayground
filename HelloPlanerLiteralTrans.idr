@@ -23,6 +23,8 @@ even (S k) = not (even k)
 odd : (n : Nat) -> Bool 
 odd n = not (even n)
 
+--hreadTable4 [String,String,Nat,Nat]  [   "Duman,KI-Survey1,23,21",   "Zapf,THNSensor,28,4",   "Meier,Memtest,16,28",   "Schulz,MMO,9,20" ]
+
 -- use :exec main or latex
 
 partial
@@ -489,6 +491,4 @@ latex = do
   let schedule = unsafeHead $ take 1 $ generateSchedules ["H","Q"] 1 2 [p1,p2]
   let content = generateLaTeX schedule
   result <- writeFile "presentations.tex" content
-  case result of
-       Left err => putStrLn "Error: Could not write file."
-       Right _  => putStrLn "Success: presentations.tex written."
+  pure ()

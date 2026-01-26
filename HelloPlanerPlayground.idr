@@ -1,5 +1,9 @@
 import Data.Vect
 import Data.Fin
+import Data.List.Elem
+import Decidable.Equality
+
+-- %default total
 {-
 import Data.List
 import Data.String
@@ -73,12 +77,10 @@ data FairGroup : List a -> Type where
  -}
 data Diff : Nat -> Nat -> Type where
   Same : Diff n n
-  PlusOne : Diff n (S n)
-  MinusOne : Diff (S n) n 
+  DPlusOne : Diff n (S n)
+  DMinusOne : Diff (S n) n 
 
-data Elem : a -> List a -> Type where
-     Here : Elem x (x :: xs)
-     There : (later : Elem x xs) -> Elem x (y :: xs)
+
 
 groupSizes : List Nat 
 groupSizes = [3,4,5]
@@ -109,6 +111,15 @@ data FairSizes : Vect n a -> Type where
 
 -- Elem (length x) ys cant be automatically solved
 
+-- TODO: schreibe Programm Model auf Zettel, schaue properties, proofs, etc.
+
+
+more : Integer -> Integer
+more x = if (x <= 0) then 1 else more (x-2) + 3
+
+prf1 : (x : Integer) -> ((x < (more x)) = True)
+prf1 x = if (x <= 0) then ?hole_01 else ?hole_02
+
 -- t : SplitList [1,2,3,4]
 -- t = SplitPair [1,2] [3,4]
 
@@ -131,6 +142,7 @@ ok2 = Two [1,2,3] [4,5,6] groupSizes
 
 
 ok3 : FairSizes [1,2,3,4,5,6,7,8,9,10]
+-- ok3 = Two [1,2,3,4,5] [6,7,8,9,10]
 ok3 = Cons [1,2,3] [4,5,6] (Two [4,5,6] [7,8,9,10] groupSizes )
 
 -- how can I achieve that the compiler is able to give me one of the correct solution?
@@ -157,6 +169,7 @@ groupFair : (xs : Vect n a) -> (prf : FairSizes xs) -> (Vect l (Vect k a), Vect 
 test : List (Vect 2 Nat)
 test = [[1,2],[3,4]]
 
+-- WRITE :ti for more information
 
 
 
@@ -191,3 +204,147 @@ good = (1 ** [ [1], [2] ])
     t : FairGroup [[1,2,3],[4,5,6]]
   
  -}
+
+
+
+
+-- rules
+
+modNat : Nat -> Nat -> Nat
+modNat n d = case d of
+  Z => n
+  S k => if n < d then n else Main.modNat (minus n d) d
+
+-- allowed group sizes
+grp : List Nat
+grp = [3, 4, 5]
+
+maxGroup : Nat
+maxGroup = foldr max 0 grp
+
+minGroup : Nat
+minGroup = foldr min maxGroup grp
+
+-- need to do it like this to fix compile errors
+ValidSize : Nat -> Type
+ValidSize x = Elem x grp
+
+
+-- n: projects
+-- x: group size
+-- to fix compile errors probably need to give minGroup and maxGroup explictly in the type here maybe?
+data Fair : (n : Nat) -> (x : Nat) -> Type where
+
+  -- n mod x = 0
+  Perfect : (prf_valid : ValidSize x)
+              -> (prf_gt  : GT n 5)   -- TODO: cant make code work with maxGroup instead of 5
+              -> (prf_mod : Main.modNat n x = 0)
+              -> Fair n x
+
+  -- n mod x = 1
+  -- not allowed if x = 5
+  PlusOne : (prf_valid : ValidSize x)
+              -> (prf_gt  : GT n 5)   -- TODO: as above
+              -> (prf_mod : Main.modNat n x = 1) 
+              -> (prf_ex  : Not (x = 5)) -- TODO: cant make code work with maxGroup instead of 5
+              -> Fair n x
+
+  -- x - (n mod x) = 1
+  -- = n mod x = x - 1 = pred x
+  -- not allowed if x = 3
+  MinusOne : (prf_valid : ValidSize x)
+               -> (prf_gt  : GT n 5)   -- TODO: as above 
+               -> (prf_mod : Main.modNat n x = (pred x))
+               -> (prf_ex  : Not (x = 3)) -- TODO: cant make code work with minGroup instead of 3
+               -> Fair n x
+
+
+
+-- "proof" that n projects can be fairly grouped for some x
+data FairGrouping : (n : Nat) -> Type where
+  IsFair : (x : Nat) -> Fair n x -> FairGrouping n
+
+getGroupSize : FairGrouping n -> Nat
+getGroupSize (IsFair x _) = x
+
+
+t1 : GT 7 5 -- automatically found by expression search
+t1 = LTESucc (LTESucc (LTESucc (LTESucc (LTESucc (LTESucc LTEZero)))))
+
+hole_04 : 3 = 5 -> Void
+hole_04 prf impossible
+
+-- here show expression search
+fair7 : FairGrouping 7
+fair7 = IsFair 3 (PlusOne Here t1 Refl (\arg => hole_04 arg) ) -- 3 = 5 -> Void)
+
+{- idris compiler
+While processing right hand side of fair7. When unifying:
+    3 = 5
+and:
+    3 = 5
+Mismatch between: 5 and 5.
+
+solution: use absurd or \_ impossible
+
+ -}
+
+fair8 : FairGrouping 8
+fair8 = IsFair 4 (Perfect (There Here) (LTESucc ?fair8_rhs_5) Refl)
+
+t2 : GT 11 5 -- automatically found by expression search
+t2 = LTESucc (LTESucc (LTESucc (LTESucc (LTESucc (LTESucc LTEZero)))))
+
+fair11 : FairGrouping 11
+fair11 = IsFair 4 (MinusOne 
+                       (There Here) 
+                       t2 -- 11 > 5
+                       Refl 
+                       (\_ impossible) -- 4 = 3 -> Void
+                    )
+
+-- x = 1 arbitary num from grp
+--  n = amount of projects
+checkRule : (n : Nat) -> (x : Nat) -> Dec (Fair n x)
+checkRule n x = ?holeChecker
+  -- 1. check if n > maxGrp (5)
+ -- case isLTE (S maxGroup) n of
+      -- 2. check if x is in grp
+--      case isElem x grp of
+          -- 3. pattern match on modulo result
+          -- if (Main.modNat n x) 0 then prf Perfect else 
+            -- if case (Main.modNat n x) (minus x 1) then prf PlusOne else...
+          -- etc.
+          
+          -- then proved?
+
+
+-- A solution for the amount of projects n is the grouping number x AND the proof it works
+Solution : Nat -> Type
+Solution n = (x : Nat ** Fair n x)
+
+findAllSolutions : (n : Nat) -> List (Solution n)
+findAllSolutions n = 
+  let
+    try : (x : Nat) -> List (Solution n)
+    try x = case checkRule n x of
+              Yes prf => [(x ** prf)]
+              No _    => []
+  in
+    try 3 ++ try 4 ++ try 5
+
+
+isFair' : Nat -> Nat -> Bool
+isFair' n x = case checkRule n x of
+    Yes _ => True
+    No  _ => False
+
+isFair : Nat -> Bool
+isFair n = any (isFair' n) grp
+
+unfairNumbers : List Nat
+unfairNumbers = filter (not . isFair) [0..60]
+
+
+
+
