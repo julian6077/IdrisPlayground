@@ -1,0 +1,37 @@
+1. Fair grouping:
+
+grp = [?, ?, ...] -- variable allowed grouping sizes (3,4,5)
+
+x = 1 arbitary num from grp
+n = amount of projects
+
+Grouping must solve atleast one solution to be "fair":
+I.   n mod x = 0
+II.  n mod x = 1		     (last group has 1 project more)
+III. x – (n mod x) = 1       (         “               less)
+
+
+I.   is for x = max(grp) no real solution 
+(last grp will be bigger than allowed sizes)
+
+III. is for x = min(grp) no real solution 
+(last grp will be smaller than allowed sizes)
+
+
+
+2. Fair room distribution:
+
+less than 6 pres: all in one room
+
+grp sizes mod (count rooms) = 0:  no mix of rooms inside grps and even distribution of rooms
+
+otherwise : equal distirbution of rooms alphabetically
+[[1,2,3,4], [5,6,7,8], [9,10,11]]
+-> flatten
+[1,2,3,4,5,6,7,8,9,10,11]
+ceil (11 / x) = z
+first z presentations in the first room, etc. 
+
+
+
+
