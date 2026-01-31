@@ -229,6 +229,8 @@ minGroup = foldr min maxGroup grp
 ValidSize : Nat -> Type
 ValidSize x = Elem x grp
 
+threee : Nat 
+threee = 3
 
 -- n: projects
 -- x: group size
@@ -255,15 +257,17 @@ data Fair : (n : Nat) -> (x : Nat) -> Type where
   MinusOne : (prf_valid : ValidSize x)
                -> (prf_gt  : GT n 5)   -- TODO: as above 
                -> (prf_mod : Main.modNat n x = (pred x))
-               -> (prf_ex  : Not (x = 3)) -- TODO: cant make code work with minGroup instead of 3
+               -> (prf_ex  : Not (x = Main.threee)) -- TODO: cant make code work with minGroup instead of 3
                -> Fair n x
 
 
 
 -- "proof" that n projects can be fairly grouped for some x
+-- dependancy on grp
 data FairGrouping : (n : Nat) -> Type where
   IsFair : (x : Nat) -> Fair n x -> FairGrouping n
 
+-- functional part
 getGroupSize : FairGrouping n -> Nat
 getGroupSize (IsFair x _) = x
 
@@ -276,7 +280,22 @@ hole_04 prf impossible
 
 -- here show expression search
 fair7 : FairGrouping 7
-fair7 = IsFair 3 (PlusOne Here t1 Refl (\arg => hole_04 arg) ) -- 3 = 5 -> Void)
+--fair7 = IsFair 3 (PlusOne Here t1 Refl (\arg => hole_04 arg) ) -- 3 = 5 -> Void)
+
+
+-- fair11_rhs_7 : 4 = 3 -> Void
+
+-- hole_56 : (x : Nat ) -> (4 = x) -> Void 
+
+fair111 : FairGrouping 11
+fair111 {} = IsFair 4 (MinusOne (There Here) (LTESucc ?fair11_rhs_6) Refl (absurd))
+
+t : 4 = 4
+t = Refl {x=4}
+
+t11 : 5 = 5 
+t11 = Refl {x=5}
+
 
 {- idris compiler
 While processing right hand side of fair7. When unifying:
@@ -305,18 +324,83 @@ fair11 = IsFair 4 (MinusOne
 
 -- x = 1 arbitary num from grp
 --  n = amount of projects
+-- case checks like p.232+ and p.247+
 checkRule : (n : Nat) -> (x : Nat) -> Dec (Fair n x)
-checkRule n x = ?holeChecker
-  -- 1. check if n > maxGrp (5)
- -- case isLTE (S maxGroup) n of
-      -- 2. check if x is in grp
---      case isElem x grp of
-          -- 3. pattern match on modulo result
-          -- if (Main.modNat n x) 0 then prf Perfect else 
-            -- if case (Main.modNat n x) (minus x 1) then prf PlusOne else...
-          -- etc.
-          
-          -- then proved?
+checkRule n x = 
+  -- 1. Check if n > 5
+  case isGT n maxGroup of
+    No notGt => No (notGtLemma notGt) -- hole here gives me a LTE 6 n -> Void instead of GT 6 n -> VOid but is the same thing
+    Yes prfGt => 
+      -- 2. Check if x is in grp
+      case isElem x grp of
+        No notElem => No (notElemLemma notElem)
+        Yes valid =>
+          -- 3. Check Modulo Rules
+          case decEq (Main.modNat n x) 0 of
+            Yes prfZero => Yes (Perfect valid prfGt prfZero) -- nice
+            No notZero =>
+              case decEq (Main.modNat n x) 1 of
+                Yes prfPlusOne => 
+                  -- check constraint
+                  case decEq x maxGroup of
+                    Yes prfMax => No (isMaxExceptionLemma prfPlusOne prfMax)
+                    No notMax => Yes (PlusOne valid prfGt prfPlusOne notMax)
+                
+                No notPlusOne =>
+                  case decEq (Main.modNat n x) (pred x) of
+                    Yes prfMinusOne =>
+                       -- check constraint
+                       case decEq x minGroup of
+                         Yes prfMin => No (isMinExceptionLemma prfMinusOne prfMin)
+                         No notMin => Yes (MinusOne valid prfGt prfMinusOne notMin)
+                  
+                    -- no other valid cases left, cant construct Fair in any other way now
+                    No notMinusOne => No (failAll notZero notPlusOne notMinusOne)
+
+  where
+    -- 1. lemma
+    notGtLemma : (GT n 5 -> Void) -> Fair n x -> Void
+    notGtLemma notGt (Perfect _ p _)    = notGt p -- can these identical cases be simplified?
+    notGtLemma notGt (PlusOne _ p _ _)  = notGt p
+    notGtLemma notGt (MinusOne _ p _ _) = notGt p
+
+    -- type checker would fill hole like this:
+    -- hole_05 : LTE 6 n -> (Elem x [3, 4, 5] -> Void) -> Fair n x -> Void 
+    -- but I already know that n > 5 must be true at this stage, Elem x ... must be simplified to ValidSize to be variable in the future
+    -- 2. lemma
+    notElemLemma : (ValidSize x -> Void) -> Fair n x -> Void
+    notElemLemma notElem (Perfect v _ _)    = notElem v
+    notElemLemma notElem (PlusOne v _ _ _)  = notElem v
+    notElemLemma notElem (MinusOne v _ _ _) = notElem v
+
+
+    -- hole type would be hole_06 : LTE 6 n -> Elem x [3, 4, 5] -> (case x of { 0 => n ; S k => let d = S k in if n < d then n else modNat (assert_smaller n (minus n d)) d } = 0 -> Void) -> case x of { 0 => n ; S k => let d = S k in if n < d then n else modNat (assert_smaller n (minus n d)) d } = 1 -> x = 5 -> Fair n x -> Void
+    -- 3. lemma when mod=1 but x=5
+    isMaxExceptionLemma : (Main.modNat n x = 1) -> (x = Main.maxGroup) -> Fair n x -> Void
+    isMaxExceptionLemma prfPlusOne isMax fair = case fair of
+        -- perfect wants mod=0 but we have mod=1 -> contradiction, how can I tell this idris?
+        (Perfect _ _ p) => ?hole_07
+        -- plusOne wants x cant be 5 but we have 5 -> contradiction
+        (PlusOne _ _ _ notMax) => notMax isMax
+        -- minusOne wants mod=x-1 but we have mod=1 -> contradiction
+        (MinusOne _ _ p _) => ?hole_09
+
+    -- almost same as isMaxException
+    isMinExceptionLemma : (Main.modNat n x = pred x) -> (x = Main.minGroup) -> Fair n x -> Void
+    isMinExceptionLemma prfMinusOne isMin fair = case fair of
+        -- perfect wants mod=0 but we have mod=2 -> contradiction, how can I tell this idris?
+        (Perfect _ _ p) => ?hole_10
+        -- plusOne wants mod=1, we have mod=2 -> contradiction
+        (PlusOne _ _ p _) => ?hole_11
+        -- minusOne says x cannot be 3 but we have 3 -> contradiction
+        (MinusOne _ _ _ notMin) => notMin isMin
+
+    -- no other cases left
+    failAll : (Main.modNat n x = 0 -> Void) -> (Main.modNat n x = 1 -> Void) -> (Main.modNat n x = pred x -> Void) -> Fair n x -> Void
+    failAll notZero _ _ (Perfect _ _ p) = notZero p
+    failAll _ notOne _ (PlusOne _ _ p _) = notOne p
+    failAll _ _ notMinusOne (MinusOne _ _ p _) = notMinusOne p
+
 
 
 -- A solution for the amount of projects n is the grouping number x AND the proof it works
