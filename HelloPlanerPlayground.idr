@@ -329,7 +329,7 @@ checkRule : (n : Nat) -> (x : Nat) -> Dec (Fair n x)
 checkRule n x = 
   -- 1. Check if n > 5
   case isGT n maxGroup of
-    No notGt => No (notGtLemma notGt) -- hole here gives me a LTE 6 n -> Void instead of GT 6 n -> VOid but is the same thing
+    No notGt => No (notGtLemma notGt) -- hole here gives me a LTE 6 n -> Void instead of GT n 6 -> VOid but is the same thing
     Yes prfGt => 
       -- 2. Check if x is in grp
       case isElem x grp of
@@ -360,18 +360,18 @@ checkRule n x =
   where
     -- 1. lemma
     notGtLemma : (GT n 5 -> Void) -> Fair n x -> Void
-    notGtLemma notGt (Perfect _ p _)    = notGt p -- can these identical cases be simplified?
-    notGtLemma notGt (PlusOne _ p _ _)  = notGt p
-    notGtLemma notGt (MinusOne _ p _ _) = notGt p
+    notGtLemma notGt (Perfect _ prf_gt _)    = notGt prf_gt -- can these identical cases be simplified?
+    notGtLemma notGt (PlusOne _ prf_gt _ _)  = notGt prf_gt
+    notGtLemma notGt (MinusOne _ prf_gt _ _) = notGt prf_gt
 
     -- type checker would fill hole like this:
     -- hole_05 : LTE 6 n -> (Elem x [3, 4, 5] -> Void) -> Fair n x -> Void 
     -- but I already know that n > 5 must be true at this stage, Elem x ... must be simplified to ValidSize to be variable in the future
     -- 2. lemma
     notElemLemma : (ValidSize x -> Void) -> Fair n x -> Void
-    notElemLemma notElem (Perfect v _ _)    = notElem v
-    notElemLemma notElem (PlusOne v _ _ _)  = notElem v
-    notElemLemma notElem (MinusOne v _ _ _) = notElem v
+    notElemLemma notElem (Perfect prf_valid _ _)    = notElem prf_valid
+    notElemLemma notElem (PlusOne prf_valid _ _ _)  = notElem prf_valid
+    notElemLemma notElem (MinusOne prf_valid _ _ _) = notElem prf_valid
 
 
     -- hole type would be hole_06 : LTE 6 n -> Elem x [3, 4, 5] -> (case x of { 0 => n ; S k => let d = S k in if n < d then n else modNat (assert_smaller n (minus n d)) d } = 0 -> Void) -> case x of { 0 => n ; S k => let d = S k in if n < d then n else modNat (assert_smaller n (minus n d)) d } = 1 -> x = 5 -> Fair n x -> Void
@@ -379,27 +379,27 @@ checkRule n x =
     isMaxExceptionLemma : (Main.modNat n x = 1) -> (x = Main.maxGroup) -> Fair n x -> Void
     isMaxExceptionLemma prfPlusOne isMax fair = case fair of
         -- perfect wants mod=0 but we have mod=1 -> contradiction, how can I tell this idris?
-        (Perfect _ _ p) => ?hole_07
+        (Perfect _ _ prf_mod) => ?hole_07
         -- plusOne wants x cant be 5 but we have 5 -> contradiction
         (PlusOne _ _ _ notMax) => notMax isMax
         -- minusOne wants mod=x-1 but we have mod=1 -> contradiction
-        (MinusOne _ _ p _) => ?hole_09
+        (MinusOne _ _ prf_mod _) => ?hole_09
 
     -- almost same as isMaxException
     isMinExceptionLemma : (Main.modNat n x = pred x) -> (x = Main.minGroup) -> Fair n x -> Void
     isMinExceptionLemma prfMinusOne isMin fair = case fair of
         -- perfect wants mod=0 but we have mod=2 -> contradiction, how can I tell this idris?
-        (Perfect _ _ p) => ?hole_10
+        (Perfect _ _ prf_mod) => ?hole_10
         -- plusOne wants mod=1, we have mod=2 -> contradiction
-        (PlusOne _ _ p _) => ?hole_11
+        (PlusOne _ _ prf_mod _) => ?hole_11
         -- minusOne says x cannot be 3 but we have 3 -> contradiction
         (MinusOne _ _ _ notMin) => notMin isMin
 
     -- no other cases left
     failAll : (Main.modNat n x = 0 -> Void) -> (Main.modNat n x = 1 -> Void) -> (Main.modNat n x = pred x -> Void) -> Fair n x -> Void
-    failAll notZero _ _ (Perfect _ _ p) = notZero p
-    failAll _ notOne _ (PlusOne _ _ p _) = notOne p
-    failAll _ _ notMinusOne (MinusOne _ _ p _) = notMinusOne p
+    failAll notZero _ _ (Perfect _ _ prf_mod) = notZero prf_mod
+    failAll _ notOne _ (PlusOne _ _ prf_mod _) = notOne prf_mod
+    failAll _ _ notMinusOne (MinusOne _ _ prf_mod _) = notMinusOne prf_mod
 
 
 
